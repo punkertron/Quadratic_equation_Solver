@@ -1,6 +1,7 @@
 #ifndef EQUATION_COEFFICIENTS_HPP
 #define EQUATION_COEFFICIENTS_HPP
 
+// a_*x^2 + b_*x + c_ = 0
 struct EquationCoefficients {
 public:
     int a_{};

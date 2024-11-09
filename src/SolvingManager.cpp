@@ -15,6 +15,11 @@
 #include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
+// Parse arguments. If successful than add them to the equationCoefQueue (another thread would
+// monitor this queue) This function doesn't use Buffer for the output, because
+//   1) It is assumed that the function will not issue error messages frequently.
+//   2) The size of any lines can be really huge And there is no need to write a lot of code because
+//   of the reason 1)
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
                   const int amount, char** argv, ConsoleOutput& output)
 {
@@ -59,11 +64,17 @@ inline static int sign(T value)
     return value < 0 ? -1 : 1;
 }
 
+// Take data from queue equationCoefQueue and find the roots of equation and extremum.
+// Save the output to the Buffer. When Buffer is full, pass it to the ConsoleOutput.
+//   The logic of bufferring isn't good, we assume that MAX_LENGTH_ONE_LINE would include one line.
+//   But for this short solution it is fine Maybe also need to remove goto...
+// This function looks huge, but the logic inside it simple. It's huge, because it handles edge
+// cases
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output)
 {
     int i{0};
     static constexpr int BUFFER_SIZE{2048};
-    static constexpr int MAX_LENGTH_ONE_LINE{200};
+    static constexpr int MAX_LENGTH_ONE_LINE{300};
     char buffer[BUFFER_SIZE] = {'\0'};
     while (std::optional<EquationCoefficients> opt = equationCoefQueue.dequeue()) {
         // by such a check, we ensure that there is no going beyond the buffer boundaries
@@ -144,6 +155,9 @@ void SolvingManager::run(int argc, char** argv)
         int startIndex = 1 + i * argsPerOneBucket;
         // last bucket must include all remaining arguments
         int argsInBucket = i * 2 == numOfThreads / 2 ? argc - startIndex : argsPerOneBucket;
+
+        // 1st thread - "parse" function which adds data to the queue
+        // 2nd thread - "solve" function which receive data from the queue
         threads.emplace_back(parse, std::ref(equationCoefQueue[i]), startIndex, argsInBucket, argv,
                              std::ref(output));
         threads.emplace_back(solve, std::ref(equationCoefQueue[i]), std::ref(output));
