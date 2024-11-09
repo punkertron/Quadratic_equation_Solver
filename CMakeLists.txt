@@ -12,6 +12,7 @@ add_executable(se_solver
 
 if(MSVC)
     target_compile_options(se_solver PRIVATE /W4 /WX)
+    target_compile_definitions(se_solver PRIVATE _CRT_SECURE_NO_DEPRECATE)
 else()
     target_compile_options(se_solver PRIVATE -Wall -Wextra -Werror -Wpedantic)
 endif()
