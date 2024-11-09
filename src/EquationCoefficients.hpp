@@ -3,10 +3,10 @@
 
 struct EquationCoefficients {
 public:
-    int a_;
-    int b_;
-    int c_;
-    static constexpr int TOTAL_COEFFICIENTS_NUM = 3;
+    int a_{};
+    int b_{};
+    int c_{};
+    static constexpr int TOTAL_COEFFICIENTS_NUM{3};
 };
 
 #endif  // EQUATION_COEFFICIENTS_HPP
