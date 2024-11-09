@@ -1,6 +1,7 @@
 #include "SolvingManager.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +16,11 @@
 #include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
+inline static bool parseOneCoef(const char* str, int& value)
+{
+    return std::from_chars(str, str + std::strlen(str), value).ec == std::errc();
+}
+
 // Parse arguments. If successful than add them to the equationCoefQueue (another thread would
 // monitor this queue) This function doesn't use Buffer for the output, because
 //   1) It is assumed that the function will not issue error messages frequently.
@@ -23,7 +29,9 @@
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
                   const int amount, char** argv, ConsoleOutput& output)
 {
-    for (int i = 0; i < amount; i += 3) {
+    // firstly, check the number of arguments - must be 3
+    // secondly, try parse each argument, and (if success) add them to the queue
+    for (int i = 0; i < amount; i += EquationCoefficients::TOTAL_COEFFICIENTS_NUM) {
         int pos = startIndex + i;
         if (i + 3 > amount) {
             bool secondArgExists = i + 1 < amount;
@@ -33,27 +41,17 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
             break;
         }
 
-        int a{};
-        if (std::from_chars(argv[pos], argv[pos] + std::strlen(argv[pos]), a).ec != std::errc()) {
+        std::array<int, 3> coefs{};
+        std::array<int, 3> indices = {pos, pos + 1, pos + 2};
+        if (!std::all_of(indices.begin(), indices.end(), [&](int index) {
+                return parseOneCoef(argv[index], coefs[index - pos]);
+            })) {
             output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
                          ") => not correct arguments for quadratic equation\n");
             continue;
         }
-        int b{};
-        if (std::from_chars(argv[pos + 1], argv[pos + 1] + std::strlen(argv[pos + 1]), b).ec !=
-            std::errc()) {
-            output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
-                         ") => not correct arguments for quadratic equation\n");
-            continue;
-        }
-        int c{};
-        if (std::from_chars(argv[pos + 2], argv[pos + 2] + std::strlen(argv[pos + 2]), c).ec !=
-            std::errc()) {
-            output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
-                         ") => not correct arguments for quadratic equation\n");
-            continue;
-        }
-        equationCoefQueue.enqueue({a, b, c});
+
+        equationCoefQueue.enqueue({coefs[0], coefs[1], coefs[2]});
     }
     equationCoefQueue.setDone();
 }
@@ -77,28 +75,32 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
     static constexpr int MAX_LENGTH_ONE_LINE{300};
     char buffer[BUFFER_SIZE] = {'\0'};
     while (std::optional<EquationCoefficients> opt = equationCoefQueue.dequeue()) {
+        const int a{opt->a_};
+        const int b{opt->b_};
+        const int c{opt->c_};
+
         // by such a check, we ensure that there is no going beyond the buffer boundaries
         if (i > BUFFER_SIZE - MAX_LENGTH_ONE_LINE) {
             output.print(buffer);
             std::memset(buffer, '\0', i);
             i = 0;
         }
-        i += std::sprintf(buffer + i, "(%d, %d, %d) => ", opt->a_, opt->b_, opt->c_);
+        i += std::sprintf(buffer + i, "(%d, %d, %d) => ", a, b, c);
 
-        long long discriminant = (opt->b_ * opt->b_ - 4 * opt->a_ * opt->c_);
+        long long discriminant = b * b - 4 * a * c;
         double temp{};
         double x1{};
         double x2{};
 
-        if (opt->a_ == 0) {
-            if (opt->b_ == 0) {
-                if (opt->c_ == 0) {
+        if (a == 0) {
+            if (b == 0) {
+                if (c == 0) {
                     i += std::sprintf(buffer + i, "(any) ");
                 } else {
                     i += std::sprintf(buffer + i, "(no roots) ");
                 }
             } else {
-                i += std::sprintf(buffer + i, "([%g]) ", -opt->c_ / static_cast<double>(opt->b_));
+                i += std::sprintf(buffer + i, "([%g]) ", -c / static_cast<double>(b));
             }
             i += std::sprintf(buffer + i, "(no extremum)\n");
             continue;
@@ -108,22 +110,22 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
             i += std::sprintf(buffer + i, "(no roots) ");
             goto find_extremum;
         }
-        temp = -0.5 * (opt->b_ + sign(opt->b_) * std::sqrt(discriminant));
-        x1 = temp / opt->a_;
+        temp = -0.5 * (b + sign(b) * std::sqrt(discriminant));
+        x1 = temp / a;
         if (discriminant == 0) {
             i += std::sprintf(buffer + i, "([%g]) ", x1);
             goto find_extremum;
         }
-        x2 = opt->c_ / temp;
+        x2 = c / temp;
         i += std::sprintf(buffer + i, "([%g], [%g]) ", x1, x2);
 
     find_extremum:
-        if (opt->a_ == 0) {
+        if (a == 0) {
             i += std::sprintf(buffer + i, "(no extremum)\n");
             continue;
         }
-        const double x = -opt->b_ / (2.0 * opt->a_);
-        const double y = opt->a_ * x * x + opt->b_ * x + opt->c_;
+        const double x = -b / (2.0 * a);
+        const double y = a * x * x + b * x + c;
         i += std::sprintf(buffer + i, "(extremum: X=[%g], Y=[%g])\n", x, y);
     }
     output.print(buffer);
@@ -151,10 +153,12 @@ void SolvingManager::run(int argc, char** argv)
     ConsoleOutput output;
     std::vector<ConcurrentQueue<EquationCoefficients>> equationCoefQueue(numOfThreads / 2);
     std::vector<std::thread> threads;
+    threads.reserve(numOfThreads);
     for (int i = 0; i * 2 < numOfThreads; ++i) {
+        // start from 1 because argv[0] is not the parameter of equation
         int startIndex = 1 + i * argsPerOneBucket;
         // last bucket must include all remaining arguments
-        int argsInBucket = i * 2 == numOfThreads / 2 ? argc - startIndex : argsPerOneBucket;
+        int argsInBucket = (i + 1) * 2 == numOfThreads ? argc - startIndex : argsPerOneBucket;
 
         // 1st thread - "parse" function which adds data to the queue
         // 2nd thread - "solve" function which receive data from the queue
