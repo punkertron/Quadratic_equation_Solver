@@ -1,7 +1,6 @@
 #ifndef CONCURRENT_QUEUE_HPP
 #define CONCURRENT_QUEUE_HPP
 
-#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
@@ -34,6 +33,7 @@ public:
 
     void setDone()
     {
+        std::lock_guard<std::mutex> lock(m_);
         isDone_ = true;
         cv_.notify_all();
     }
@@ -42,7 +42,7 @@ private:
     std::queue<T> queue_;
     std::mutex m_;
     std::condition_variable cv_;
-    std::atomic<bool> isDone_ = false;
+    bool isDone_{false};
 };
 
 #endif  // CONCURRENT_QUEUE_HPP
