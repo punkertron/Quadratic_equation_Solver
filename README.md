@@ -16,6 +16,8 @@ Just solve the Quadratic Equation. But using multithreading. And take into accou
 ---
 
 ### How To Build And Run
+_Development was done mainly on Linux (Debian 12), but also tested building and running on Windows._
+
 On linux (using cmake and make):
 ```bash
 cmake -DCMAKE_BUILD_TYPE=Release -S . -B build
