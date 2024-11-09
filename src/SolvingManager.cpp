@@ -3,13 +3,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <thread>
-#include <utility>
 #include <vector>
 
+#include "ConcurrentQueue.hpp"
+#include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,

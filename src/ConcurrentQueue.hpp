@@ -1,6 +1,7 @@
 #ifndef CONCURRENT_QUEUE_HPP
 #define CONCURRENT_QUEUE_HPP
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
@@ -41,7 +42,7 @@ private:
     std::queue<T> queue_;
     std::mutex m_;
     std::condition_variable cv_;
-    bool isDone_ = false;
+    std::atomic<bool> isDone_ = false;
 };
 
 #endif  // CONCURRENT_QUEUE_HPP

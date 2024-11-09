@@ -3,18 +3,17 @@
 
 #include <iostream>
 #include <mutex>
-#include <sstream>
 #include <utility>
 
 class ConsoleOutput {
 public:
-    ConsoleOutput()
-    {
-        // std::cin.tie(nullptr);
-        // std::cout.tie(nullptr);
-        // std::cin.sync_with_stdio(false);
-        // std::cout.sync_with_stdio(false);
-    }
+    ConsoleOutput() = default;
+    ~ConsoleOutput() = default;
+
+    ConsoleOutput(const ConsoleOutput&) = delete;
+    ConsoleOutput& operator=(const ConsoleOutput&) = delete;
+    ConsoleOutput(ConsoleOutput&&) = delete;
+    ConsoleOutput& operator=(ConsoleOutput&&) = delete;
 
     template <typename... Args>
     void print(Args&&... args)

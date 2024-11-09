@@ -1,5 +1,5 @@
-#ifndef TREY_HPP
-#define TREY_HPP
+#ifndef EQUATION_COEFFICIENTS_HPP
+#define EQUATION_COEFFICIENTS_HPP
 
 struct EquationCoefficients {
 public:
@@ -9,4 +9,4 @@ public:
     static constexpr int TOTAL_COEFFICIENTS_NUM = 3;
 };
 
-#endif  // TREY_HPP
+#endif  // EQUATION_COEFFICIENTS_HPP
