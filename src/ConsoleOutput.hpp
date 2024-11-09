@@ -1,5 +1,4 @@
-#ifndef CONSOLE_OUTPUT_HPP
-#define CONSOLE_OUTPUT_HPP
+#pragma once
 
 #include <iostream>
 #include <mutex>
@@ -25,5 +24,3 @@ public:
 private:
     std::mutex m_;
 };
-
-#endif  // CONSOLE_OUTPUT_HPP

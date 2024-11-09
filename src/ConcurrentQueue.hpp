@@ -1,5 +1,4 @@
-#ifndef CONCURRENT_QUEUE_HPP
-#define CONCURRENT_QUEUE_HPP
+#pragma once
 
 #include <condition_variable>
 #include <mutex>
@@ -44,5 +43,3 @@ private:
     std::condition_variable cv_;
     bool isDone_{false};
 };
-
-#endif  // CONCURRENT_QUEUE_HPP
