@@ -6,7 +6,7 @@
 #include <system_error>  // for errc
 
 // large buffer for output
-static constexpr int BUFFER_SIZE{131072};
+static constexpr int BUFFER_SIZE{65536};
 static constexpr int MAX_LENGTH_ONE_LINE{300};
 static char output_buffer[BUFFER_SIZE];
 static size_t buffer_offset{0};
