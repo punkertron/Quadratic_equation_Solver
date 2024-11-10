@@ -1,8 +1,10 @@
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <system_error>  // for errc
 
 // large buffer for output
@@ -66,7 +68,7 @@ inline static void solve(int a, int b, int c)
         double root = -b * inv_2a;
         appendToBuffer(" => ([%g])", root);
     } else {
-        appendToBuffer(" => (no real roots)");
+        appendToBuffer(" => (no roots)");
     }
 
     const double x = -b * inv_2a;
@@ -76,34 +78,52 @@ inline static void solve(int a, int b, int c)
 
 int main(int argc, char* argv[])
 {
-    if (argc < 4) {
-        std::printf("Usage: ./se_solver [a] [b] [c]\n");
-        return 1;
-    }
+    using std::chrono::duration_cast;
+    using std::chrono::microseconds;
+    using std::chrono::milliseconds;
+    using std::chrono::steady_clock;
 
-    for (int i = 1; i < argc; i += 3) {
-        if (i + 2 >= argc) {
-            appendToBuffer("(");
-            for (int j = i; j < argc; ++j) {
-                appendToBuffer("%s%s", argv[j], (j < argc - 1 ? " " : ""));
+    auto start = steady_clock::now();
+    {
+        if (argc < 4) {
+            std::printf("Usage: ./se_solver [a1] [b1] [c1] [a2] [b2] [c2] ...\n");
+            return 1;
+        }
+
+        for (int i = 1; i < argc; i += 3) {
+            if (i + 2 >= argc) {
+                appendToBuffer("(");
+                for (int j = i; j < argc; ++j) {
+                    appendToBuffer("%s%s", argv[j], (j < argc - 1 ? " " : ""));
+                }
+                appendToBuffer(") => not enough arguments for quadratic equation\n");
+                break;
             }
-            appendToBuffer(") => not enough arguments for quadratic equation\n");
-            break;
-        }
 
-        int a{};
-        int b{};
-        int c{};
-        if (!parseToInt(argv[i], a) || !parseToInt(argv[i + 1], b) || !parseToInt(argv[i + 2], c)) {
-            appendToBuffer("(%s, %s, %s) => not correct arguments for quadratic equation\n",
-                           argv[i], argv[i + 1], argv[i + 2]);
-            continue;
-        }
+            int a{};
+            int b{};
+            int c{};
+            if (!parseToInt(argv[i], a) || !parseToInt(argv[i + 1], b) ||
+                !parseToInt(argv[i + 2], c)) {
+                appendToBuffer("(%s, %s, %s) => not correct arguments for quadratic equation\n",
+                               argv[i], argv[i + 1], argv[i + 2]);
+                continue;
+            }
 
-        appendToBuffer("(%d, %d, %d)", a, b, c);
-        solve(a, b, c);
+            appendToBuffer("(%d, %d, %d)", a, b, c);
+            solve(a, b, c);
+        }
+        print();
     }
 
-    print();
+    auto finish = steady_clock::now();
+    auto duration_ms = duration_cast<milliseconds>(finish - start).count();
+    auto duration_us = duration_cast<microseconds>(finish - start).count();
+
+    if (duration_ms < 1) {
+        std::cout << "Time elapsed: " << duration_us << "µs\n";
+    } else {
+        std::cout << "Time elapsed: " << duration_ms << "ms\n";
+    }
     return 0;
 }
