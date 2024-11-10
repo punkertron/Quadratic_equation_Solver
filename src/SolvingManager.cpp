@@ -1,7 +1,6 @@
 #include "SolvingManager.hpp"
 
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
@@ -16,9 +15,9 @@
 #include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
-inline static bool parseOneCoef(const char* str, int& value)
+inline static bool parseToInt(const char* str, int& result)
 {
-    return std::from_chars(str, str + std::strlen(str), value).ec == std::errc();
+    return std::from_chars(str, str + std::strlen(str), result).ec == std::errc();
 }
 
 // Parse arguments. If successful than add them to the equationCoefQueue (another thread would
@@ -41,17 +40,17 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
             break;
         }
 
-        std::array<int, 3> coefs{};
-        std::array<int, 3> indices = {pos, pos + 1, pos + 2};
-        if (!std::all_of(indices.begin(), indices.end(), [&](int index) {
-                return parseOneCoef(argv[index], coefs[index - pos]);
-            })) {
+        int a{};
+        int b{};
+        int c{};
+        if (!parseToInt(argv[pos], a) || !parseToInt(argv[pos + 1], b) ||
+            !parseToInt(argv[pos + 2], c)) {
             output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
                          ") => not correct arguments for quadratic equation\n");
             continue;
         }
 
-        equationCoefQueue.enqueue({coefs[0], coefs[1], coefs[2]});
+        equationCoefQueue.enqueue({a, b, c});
     }
     equationCoefQueue.setDone();
 }
@@ -71,7 +70,7 @@ inline static int sign(T value)
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output)
 {
     int i{0};
-    static constexpr int BUFFER_SIZE{2048};
+    static constexpr int BUFFER_SIZE{4096};
     static constexpr int MAX_LENGTH_ONE_LINE{300};
     char buffer[BUFFER_SIZE] = {'\0'};
     while (std::optional<EquationCoefficients> opt = equationCoefQueue.dequeue()) {
@@ -87,7 +86,7 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
         }
         i += std::sprintf(buffer + i, "(%d, %d, %d) => ", a, b, c);
 
-        long long discriminant = b * b - 4 * a * c;
+        long long discriminant = std::pow(b, 2) - 4LL * a * c;
         double temp{};
         double x1{};
         double x2{};
