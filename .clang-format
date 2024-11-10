@@ -12,6 +12,7 @@ PackConstructorInitializers: NextLine
 BreakConstructorInitializers: AfterColon
 AccessModifierOffset: -4
 BreakBeforeBraces: Custom
+MaxEmptyLinesToKeep: 2
 BraceWrapping:
   AfterClass: false
   AfterControlStatement: false
