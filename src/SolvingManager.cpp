@@ -15,48 +15,11 @@
 #include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
-inline static bool parseToInt(const char* str, int& result)
-{
-    return std::from_chars(str, str + std::strlen(str), result).ec == std::errc();
-}
-
-// Parse arguments. If successful than add them to the equationCoefQueue (another thread would
-// monitor this queue) This function doesn't use Buffer for the output, because
-//   1) It is assumed that the function will not issue error messages frequently.
-//   2) The size of any lines can be really huge And there is no need to write a lot of code because
-//   of the reason 1)
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
-                  const int amount, char** argv, ConsoleOutput& output)
-{
-    // firstly, check the number of arguments - must be 3
-    // secondly, try parse each argument, and (if success) add them to the queue
-    for (int i = 0; i < amount; i += 3) {
-        int pos = startIndex + i;
-        if (i + 3 > amount) {
-            bool secondArgExists = i + 1 < amount;
-            output.print('(', argv[pos], secondArgExists ? ", " : "",
-                         secondArgExists ? argv[pos + 1] : "",
-                         ") => not enough arguments for quadratic equation\n");
-            break;
-        }
+                  const int amount, char** argv, ConsoleOutput& output);
 
-        int a{};
-        int b{};
-        int c{};
-        if (!parseToInt(argv[pos], a) || !parseToInt(argv[pos + 1], b) ||
-            !parseToInt(argv[pos + 2], c)) {
-            output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
-                         ") => not correct arguments for quadratic equation\n");
-            continue;
-        }
-
-        equationCoefQueue.enqueue({a, b, c});
-    }
-    equationCoefQueue.setDone();
-}
+static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,6 +104,50 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
         findExtremum(buffer, i, a, b, c);
     }
     output.print(buffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline static bool parseToInt(const char* str, int& result)
+{
+    return std::from_chars(str, str + std::strlen(str), result).ec == std::errc();
+}
+
+// Parse arguments. If successful than add them to the equationCoefQueue (another thread would
+// monitor this queue) This function doesn't use Buffer for the output, because
+//   1) It is assumed that the function will not issue error messages frequently.
+//   2) The size of any lines can be really huge And there is no need to write a lot of code because
+//   of the reason 1)
+static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
+                  const int amount, char** argv, ConsoleOutput& output)
+{
+    // firstly, check the number of arguments - must be 3
+    // secondly, try parse each argument, and (if success) add them to the queue
+    for (int i = 0; i < amount; i += 3) {
+        int pos = startIndex + i;
+        if (i + 3 > amount) {
+            bool secondArgExists = i + 1 < amount;
+            output.print('(', argv[pos], secondArgExists ? ", " : "",
+                         secondArgExists ? argv[pos + 1] : "",
+                         ") => not enough arguments for quadratic equation\n");
+            break;
+        }
+
+        int a{};
+        int b{};
+        int c{};
+        if (!parseToInt(argv[pos], a) || !parseToInt(argv[pos + 1], b) ||
+            !parseToInt(argv[pos + 2], c)) {
+            output.print('(', argv[pos], ' ', argv[pos + 1], ' ', argv[pos + 2],
+                         ") => not correct arguments for quadratic equation\n");
+            continue;
+        }
+
+        equationCoefQueue.enqueue({a, b, c});
+    }
+    equationCoefQueue.setDone();
+    solve(equationCoefQueue, output);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
