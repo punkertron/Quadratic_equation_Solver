@@ -6,5 +6,4 @@ public:
     int a_{};
     int b_{};
     int c_{};
-    static constexpr int TOTAL_COEFFICIENTS_NUM{3};
 };

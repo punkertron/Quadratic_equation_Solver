@@ -15,6 +15,9 @@
 #include "ConsoleOutput.hpp"
 #include "EquationCoefficients.hpp"
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 inline static bool parseToInt(const char* str, int& result)
 {
     return std::from_chars(str, str + std::strlen(str), result).ec == std::errc();
@@ -30,7 +33,7 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
 {
     // firstly, check the number of arguments - must be 3
     // secondly, try parse each argument, and (if success) add them to the queue
-    for (int i = 0; i < amount; i += EquationCoefficients::TOTAL_COEFFICIENTS_NUM) {
+    for (int i = 0; i < amount; i += 3) {
         int pos = startIndex + i;
         if (i + 3 > amount) {
             bool secondArgExists = i + 1 < amount;
@@ -55,18 +58,42 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
     equationCoefQueue.setDone();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline static void findExtremum(char buffer[], int& i, const int a, const int b, const int c)
+{
+    const double x = -b / (2.0 * a);
+    const double y = a * x * x + b * x + c;
+    i += std::sprintf(buffer + i, "(extremum: X=[%g], Y=[%g])\n", x, y);
+    return;
+}
+
 template <typename T>
 inline static int sign(T value)
 {
     return value < 0 ? -1 : 1;
 }
 
+inline static void findRootsNonParabola(char buffer[], int& i, const int b, const int c)
+{
+    if (b == 0) {
+        if (c == 0) {
+            i += std::sprintf(buffer + i, "(any) ");
+        } else {
+            i += std::sprintf(buffer + i, "(no roots) ");
+        }
+    } else {
+        i += std::sprintf(buffer + i, "([%g]) ", -c / static_cast<double>(b));
+    }
+    return;
+}
+
 // Take data from queue equationCoefQueue and find the roots of equation and extremum.
 // Save the output to the Buffer. When Buffer is full, pass it to the ConsoleOutput.
 //   The logic of bufferring isn't good, we assume that MAX_LENGTH_ONE_LINE would include one line.
-//   But for this short solution it is fine Maybe also need to remove goto...
-// This function looks huge, but the logic inside it simple. It's huge, because it handles edge
-// cases
+//   But for this short solution it is fine.
+// This function looks huge, but the logic inside it simple
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output)
 {
     int i{0};
@@ -86,58 +113,44 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
         }
         i += std::sprintf(buffer + i, "(%d, %d, %d) => ", a, b, c);
 
-        long long discriminant = std::pow(b, 2) - 4LL * a * c;
-        double temp{};
-        double x1{};
-        double x2{};
-
         if (a == 0) {
-            if (b == 0) {
-                if (c == 0) {
-                    i += std::sprintf(buffer + i, "(any) ");
-                } else {
-                    i += std::sprintf(buffer + i, "(no roots) ");
-                }
-            } else {
-                i += std::sprintf(buffer + i, "([%g]) ", -c / static_cast<double>(b));
-            }
+            // not a parabola
+            findRootsNonParabola(buffer, i, b, c);
             i += std::sprintf(buffer + i, "(no extremum)\n");
             continue;
         }
 
+        long long discriminant = std::pow(b, 2) - 4LL * a * c;
         if (discriminant < 0) {
             i += std::sprintf(buffer + i, "(no roots) ");
-            goto find_extremum;
-        }
-        temp = -0.5 * (b + sign(b) * std::sqrt(discriminant));
-        x1 = temp / a;
-        if (discriminant == 0) {
-            i += std::sprintf(buffer + i, "([%g]) ", x1);
-            goto find_extremum;
-        }
-        x2 = c / temp;
-        i += std::sprintf(buffer + i, "([%g], [%g]) ", x1, x2);
-
-    find_extremum:
-        if (a == 0) {
-            i += std::sprintf(buffer + i, "(no extremum)\n");
+            findExtremum(buffer, i, a, b, c);
             continue;
         }
-        const double x = -b / (2.0 * a);
-        const double y = a * x * x + b * x + c;
-        i += std::sprintf(buffer + i, "(extremum: X=[%g], Y=[%g])\n", x, y);
+
+        double temp = -0.5 * (b + sign(b) * std::sqrt(discriminant));
+        double x1 = temp / a;
+        if (discriminant == 0) {
+            i += std::sprintf(buffer + i, "([%g]) ", x1);
+            findExtremum(buffer, i, a, b, c);
+            continue;
+        }
+
+        double x2 = c / temp;
+        i += std::sprintf(buffer + i, "([%g], [%g]) ", x1, x2);
+
+        findExtremum(buffer, i, a, b, c);
     }
     output.print(buffer);
 }
 
-static int getArgsPerOneBucket(const int argc, const int numOfThreads)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline static int getArgsPerOneBucket(const int argc, const int numOfThreads)
 {
-    int argsPerOneParser = std::max(argc < EquationCoefficients::TOTAL_COEFFICIENTS_NUM
-                                        ? argc
-                                        : EquationCoefficients::TOTAL_COEFFICIENTS_NUM,
-                                    argc / (numOfThreads / 2));
+    int argsPerOneParser = std::max(3, argc / (numOfThreads / 2));
     // the argsPerOneParser must be a multiple of the number of coefficients
-    while (argsPerOneParser % EquationCoefficients::TOTAL_COEFFICIENTS_NUM) {
+    while (argsPerOneParser % 3) {
         --argsPerOneParser;
     }
     return argsPerOneParser;
@@ -159,8 +172,8 @@ void SolvingManager::run(int argc, char** argv)
         // last bucket must include all remaining arguments
         int argsInBucket = (i + 1) * 2 == numOfThreads ? argc - startIndex : argsPerOneBucket;
 
-        // 1st thread - "parse" function which adds data to the queue
-        // 2nd thread - "solve" function which receive data from the queue
+        // 1st thread - "parse" function which parses and adds data to the queue
+        // 2nd thread - "solve" function which receives data from the queue and solves the equation
         threads.emplace_back(parse, std::ref(equationCoefQueue[i]), startIndex, argsInBucket, argv,
                              std::ref(output));
         threads.emplace_back(solve, std::ref(equationCoefQueue[i]), std::ref(output));

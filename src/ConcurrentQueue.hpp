@@ -8,7 +8,6 @@
 template <class T>
 class ConcurrentQueue final {
 public:
-
     ConcurrentQueue() = default;
     ~ConcurrentQueue() = default;
 
