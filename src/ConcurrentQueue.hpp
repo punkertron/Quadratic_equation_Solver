@@ -6,8 +6,17 @@
 #include <queue>
 
 template <class T>
-class ConcurrentQueue {
+class ConcurrentQueue final {
 public:
+
+    ConcurrentQueue() = default;
+    ~ConcurrentQueue() = default;
+
+    ConcurrentQueue(const ConcurrentQueue&) = delete;
+    ConcurrentQueue& operator=(const ConcurrentQueue&) = delete;
+    ConcurrentQueue(ConcurrentQueue&&) = delete;
+    ConcurrentQueue& operator=(ConcurrentQueue&&) = delete;
+
     void enqueue(const T& value)
     {
         std::lock_guard<std::mutex> lock(m_);

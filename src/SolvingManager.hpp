@@ -1,6 +1,6 @@
 #pragma once
 
-class SolvingManager {
+class SolvingManager final {
 public:
     void run(int argc, char** argv);
 };

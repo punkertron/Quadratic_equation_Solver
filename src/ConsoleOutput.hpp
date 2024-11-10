@@ -4,7 +4,7 @@
 #include <mutex>
 #include <utility>
 
-class ConsoleOutput {
+class ConsoleOutput final {
 public:
     ConsoleOutput() = default;
     ~ConsoleOutput() = default;
