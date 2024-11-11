@@ -3,13 +3,12 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <optional>
-#include <sstream>
 #include <system_error>  // for errc
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "ConcurrentQueue.hpp"
@@ -17,16 +16,22 @@
 #include "EquationCoefficients.hpp"
 
 
+// use C-Style arrays for buffering output.
+static constexpr int BUFFER_SIZE{4096};
+// if our current position in Buffer > (BUFFER_SIZE - MAX_LENGTH_ONE_LINE), then pass the Buffer to the ConsoleOutput.
+static constexpr int MAX_LENGTH_ONE_LINE{300};
+
+
 // Parse arguments.
 // If successful, then add them to the equationCoefQueue (another thread would monitor this queue).
-// Save the output with parsing errors to the ostringstream. Finally, pass this stream to the ConsoleOutput.
+// Save the output with parsing errors to the buffer[BUFFER_SIZE]. Finally, pass this buffer to the ConsoleOutput.
 //   IMPORTANT: At the very end, we call the "solve" function so that the producer becomes the consumer.
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
                   const int amount, char** argv, ConsoleOutput& output);
 
 
 // Take data from the queue equationCoefQueue and find the roots of the equation and extremum.
-// Save the output to the ostringstream. Finally, pass this stream to the ConsoleOutput.
+// Save the output to the buffer[BUFFER_SIZE]. Finally, pass this buffer to the ConsoleOutput.
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output);
 
 
@@ -35,11 +40,11 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // solve
 
-inline static void findExtremum(std::ostringstream& oss, const int a, const int b, const int c)
+inline static void findExtremum(char buffer[], int& i, const int a, const int b, const int c)
 {
     const double x = -b / (2.0 * a);
     const double y = a * x * x + b * x + c;
-    oss << "(extremum: X=[" << x << "], Y=[" << y << "])\n";
+    i += std::sprintf(buffer + i, "(extremum: X=[%g], Y=[%g])\n", x, y);
 }
 
 template <typename T>
@@ -48,55 +53,63 @@ inline static int sign(T value)
     return value < 0 ? -1 : 1;
 }
 
-inline static void findRootsNonParabola(std::ostringstream& oss, const int b, const int c)
+inline static void findRootsNonParabola(char buffer[], int& i, const int b, const int c)
 {
     if (b == 0) {
         if (c == 0) {
-            oss << "(any) ";
+            i += std::sprintf(buffer + i, "(any) ");
         } else {
-            oss << "(no roots) ";
+            i += std::sprintf(buffer + i, "(no roots) ");
         }
     } else {
-        oss << '(' << -c / static_cast<double>(b) << ") ";
+        i += std::sprintf(buffer + i, "([%g]) ", -c / static_cast<double>(b));
     }
 }
 
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output)
 {
-    std::ostringstream oss;
+    int i{0};
+    char buffer[BUFFER_SIZE] = {'\0'};
     while (std::optional<EquationCoefficients> opt = equationCoefQueue.dequeue()) {
         const int a{opt->a_};
         const int b{opt->b_};
         const int c{opt->c_};
 
-        oss << '(' << a << ", " << b << ", " << c << ") => ";
+        // by such a check, we ensure that there is no going beyond the buffer boundaries
+        if (i > BUFFER_SIZE - MAX_LENGTH_ONE_LINE) {
+            output.print(buffer);
+            std::memset(buffer, '\0', i);
+            i = 0;
+        }
+        i += std::sprintf(buffer + i, "(%d, %d, %d) => ", a, b, c);
 
         if (a == 0) {  // not a parabola
-            findRootsNonParabola(oss, b, c);
-            oss << "(no extremum)\n";
+            findRootsNonParabola(buffer, i, b, c);
+            i += std::sprintf(buffer + i, "(no extremum)\n");
             continue;
         }
 
         long long discriminant = static_cast<long long>(std::pow(b, 2)) - 4LL * a * c;
         if (discriminant < 0) {
-            oss << "(no roots) ";
-            findExtremum(oss, a, b, c);
+            i += std::sprintf(buffer + i, "(no roots) ");
+            findExtremum(buffer, i, a, b, c);
             continue;
         }
 
         double temp = -0.5 * (b + sign(b) * std::sqrt(discriminant));
         double x1 = temp / a;
-        if (discriminant == 0) {  // one root
-            oss << "([" << x1 << "]) ";
-            findExtremum(oss, a, b, c);
+        if (discriminant == 0) {
+            i += std::sprintf(buffer + i, "([%g]) ", x1);
+            findExtremum(buffer, i, a, b, c);
             continue;
         }
 
         double x2 = c / temp;
-        oss << "([" << x1 << "], [" << x2 << "]) ";
-        findExtremum(oss, a, b, c);
+        i += std::sprintf(buffer + i, "([%g], [%g]) ", x1, x2);
+
+        findExtremum(buffer, i, a, b, c);
     }
-    output.print(std::move(*oss.rdbuf()).str());
+    output.print(buffer);
 }
 
 
@@ -114,15 +127,23 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
                   const int amount, char** argv, ConsoleOutput& output)
 {
     {
-        std::ostringstream oss;
-        for (int i = 0; i < amount; i += 3) {
-            int pos = startIndex + i;
-            if (i + 3 > amount) {  // check the number of arguments - must be 3
-                oss << '(' << argv[pos];
-                if (i + 1 < amount) {  // check second arg exists or not
-                    oss << ", " << argv[pos + 1];
+        int i{0};
+        char buffer[BUFFER_SIZE] = {'\0'};
+        for (int j = 0; j < amount; j += 3) {
+            // by such a check, we ensure that there is no going beyond the buffer boundaries
+            if (i > BUFFER_SIZE - MAX_LENGTH_ONE_LINE) {
+                output.print(buffer);
+                std::memset(buffer, '\0', i);
+                i = 0;
+            }
+
+            int pos = startIndex + j;
+            if (j + 3 > amount) {  // check the number of arguments - must be 3
+                i += std::sprintf(buffer + i, "(%.20s", argv[pos]);
+                if (j + 1 < amount) {  // check second arg exists or not
+                    i += std::sprintf(buffer + i, ", %.20s", argv[pos + 1]);
                 }
-                oss << ") => not enough arguments for quadratic equation\n";
+                i += std::sprintf(buffer + i, ") => not enough arguments for quadratic equation\n");
                 break;
             }
 
@@ -132,14 +153,16 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
             int c{};
             if (!parseToInt(argv[pos], a) || !parseToInt(argv[pos + 1], b) ||
                 !parseToInt(argv[pos + 2], c)) {
-                oss << '(' << argv[pos] << ' ' << argv[pos + 1] << ' ' << argv[pos + 2]
-                    << ") => not correct arguments for quadratic equation\n";
+                i += std::sprintf(
+                    buffer + i,
+                    "(%.20s, %.20s, %.20s) => not correct arguments for quadratic equation\n",
+                    argv[pos], argv[pos + 1], argv[pos + 2]);
                 continue;
             }
             equationCoefQueue.enqueue({a, b, c});
         }
+        output.print(buffer);
         equationCoefQueue.setDone();
-        output.print(std::move(*oss.rdbuf()).str());
     }
 
     // producer becomes consumer
