@@ -4,6 +4,9 @@
 #include <mutex>
 #include <utility>
 
+// we can create base class Output and inherit from it and override print function,
+// but keep without inheritance for simplicity
+
 class ConsoleOutput final {
 public:
     ConsoleOutput() = default;

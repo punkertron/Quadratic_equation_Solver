@@ -19,14 +19,14 @@
 
 // Parse arguments.
 // If successful, then add them to the equationCoefQueue (another thread would monitor this queue).
-// Save the output with parsing errors to the ostringstream. Finally, pass this stream to the output.
+// Save the output with parsing errors to the ostringstream. Finally, pass this stream to the ConsoleOutput.
 //   IMPORTANT: At the very end, we call the "solve" function so that the producer becomes the consumer.
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
                   const int amount, char** argv, ConsoleOutput& output);
 
 
 // Take data from the queue equationCoefQueue and find the roots of the equation and extremum.
-// Save the output to the ostringstream. Finally, pass this stream to the output.
+// Save the output to the ostringstream. Finally, pass this stream to the ConsoleOutput.
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output);
 
 
@@ -40,7 +40,6 @@ inline static void findExtremum(std::ostringstream& oss, const int a, const int 
     const double x = -b / (2.0 * a);
     const double y = a * x * x + b * x + c;
     oss << "(extremum: X=[" << x << "], Y=[" << y << "])\n";
-    return;
 }
 
 template <typename T>
@@ -60,7 +59,6 @@ inline static void findRootsNonParabola(std::ostringstream& oss, const int b, co
     } else {
         oss << '(' << -c / static_cast<double>(b) << ") ";
     }
-    return;
 }
 
 static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, ConsoleOutput& output)
@@ -162,6 +160,8 @@ inline static int getArgsPerOneBucket(const int argc, const int numOfThreads)
     return argsPerOneParser;
 }
 
+// split all arguments into buckets. for each bucket create a pair of threads (parse and solve)
+// NOTE: parse call solve at the end
 void SolvingManager::run(int argc, char** argv)
 {
     const int numOfThreads =

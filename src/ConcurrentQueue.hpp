@@ -49,5 +49,6 @@ private:
     std::queue<T> queue_;
     std::mutex m_;
     std::condition_variable cv_;
-    bool isDone_{false};
+    bool isDone_{false};  // true is the mark that there are no new elements
+                          //   and dequeue can return std::nullopt.
 };
