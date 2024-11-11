@@ -106,7 +106,8 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
 
 inline static bool parseToInt(const char* str, int& result)
 {
-    return std::from_chars(str, str + std::strlen(str), result).ec == std::errc();
+    auto [ptr, ec] = std::from_chars(str, str + std::strlen(str), result);
+    return ec == std::errc() && ptr == str + std::strlen(str);
 }
 
 static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, const int startIndex,
