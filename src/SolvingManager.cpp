@@ -174,6 +174,19 @@ static void parse(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, cons
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SolvingManager::run
 
+inline static int getNumberOfThreads(const int argc)
+{
+    int numOfThreads =
+        std::max(static_cast<int>(std::thread::hardware_concurrency()), 2);  // never can be odd?
+
+    int arguments = argc - 1;  // because argv[0] is not what we need
+    int numOfBuckets = arguments / 3 + arguments % 3 ? 1 : 0;
+    const int numOfThreadsPerBucket = 2;
+    return numOfThreads > numOfBuckets * numOfThreadsPerBucket
+               ? numOfBuckets * numOfThreadsPerBucket
+               : numOfThreads;
+}
+
 inline static int getArgsPerOneBucket(const int argc, const int numOfThreads)
 {
     int argsPerOneParser = std::max(3, argc / (numOfThreads / 2));
@@ -186,10 +199,9 @@ inline static int getArgsPerOneBucket(const int argc, const int numOfThreads)
 
 // split all arguments into buckets. for each bucket create a pair of threads (parse and solve)
 // NOTE: parse call solve at the end
-void SolvingManager::run(int argc, char** argv)
+void SolvingManager::run(const int argc, char** argv)
 {
-    const int numOfThreads =
-        std::max(static_cast<int>(std::thread::hardware_concurrency()), 2);  // never can be odd?
+    const int numOfThreads = getNumberOfThreads(argc);
     const int argsPerOneBucket = getArgsPerOneBucket(argc, numOfThreads);
 
     ConsoleOutput output;  // Output from threads is only done through this class.
