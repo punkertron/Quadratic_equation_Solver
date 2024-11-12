@@ -89,7 +89,7 @@ static void solve(ConcurrentQueue<EquationCoefficients>& equationCoefQueue, Cons
             continue;
         }
 
-        long long discriminant = static_cast<long long>(std::pow(b, 2)) - 4LL * a * c;
+        double discriminant = std::pow(b, 2) - 4.0 * a * c;
         if (discriminant < 0) {
             i += std::sprintf(buffer + i, "(no roots) ");
             findExtremum(buffer, i, a, b, c);
